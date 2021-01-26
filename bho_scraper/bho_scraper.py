@@ -22,6 +22,30 @@ from tqdm import tqdm as tqdm
 from bs4 import BeautifulSoup
 
 
+def save_item_to_path(item, path, file_name):
+    try:
+        if not os.path.exists(path):
+            os.mkdir(path)
+        pickle_path = os.path.join(path, file_name)
+        with open(pickle_path, 'wb') as f:
+            pickle.dump(item, f)
+    except:
+        raise ValueError('Please enter a valid path.')
+
+
+def change_href(href):
+    '''
+    Performs necessary replacement "/" -> "--" in the href given in 
+    catalogue html.
+    '''
+    href = '/' + href[1:].replace('/', '--')
+    return href
+
+
+def standardize_query(query):
+    p = re.compile(r'[\W_]+')
+    return p.sub('', query).lower()
+
 class BHOScraper():
 
     def __init__(self):
@@ -29,15 +53,6 @@ class BHOScraper():
         self.catalogue = {}
         self.scraped_series = {}
 
-    @staticmethod
-    def change_href(href):
-        '''
-        Performs necessary replacement "/" -> "--" in the href given in 
-        catalogue html.
-        '''
-        href = '/' + href[1:].replace('/', '--')
-        return href
-    
 
     def scrape_catalogue(self, path=None):
         '''
@@ -48,13 +63,19 @@ class BHOScraper():
         Returns: None
         '''
         catalogue      = self.catalogue
-        if catalogue.keys():
+        if catalogue:
             raise Exception('Catalogue already exists. Reset using "self.reset_catalogue" before scraping again.')
-            
             return None
 
         catalogue_url  = r'https://www.british-history.ac.uk/catalogue'
-        catalogue_html = requests.get(catalogue_url).text
+        try:
+            catalogue_get  = requests.get(catalogue_url)
+        except:
+            raise Exception('Unknown error. Please try again.')
+        status_code    = catalogue_get.status_code
+        if status_code != 200:
+            raise Exception('Error: status code: {}'.format(status_code))
+        catalogue_html = catalogue_get.text
         catalogue_soup = BeautifulSoup(catalogue_html, 'html.parser')
         table_contents = catalogue_soup.find('table')
         table_rows     = table_contents.find_all('tr')
@@ -63,20 +84,13 @@ class BHOScraper():
             series_title = row.find_all('a')[0].text
             series_title = p.sub('', series_title).lower()
             series_href  = row.find_all('a')[0]['href']
-            series_href  = self.change_href(series_href)
+            series_href  = change_href(series_href)
             pattern      = re.compile(r'no-series')
             if not pattern.findall(series_href):
                 catalogue[series_title] = r'https://www.british-history.ac.uk/search/series' + series_href + r'?query={}&page={}'
         if path:
-            try:
-                if not os.path.exists(path):
-                    os.mkdir(path)
-                catalogue_pickle_path = os.path.join(path, r'catalogue.pickle')
-                with open(catalogue_pickle_path, 'wb') as f:
-                    pickle.dump(catalogue, f)
-            except:
-                raise ValueError('Please enter a valid path.')
-        
+            save_item_to_path(catalogue, path, 'catalogue.pickle')
+
         # Now update the catalogue attribute
         self.catalogue = catalogue
 
@@ -89,7 +103,7 @@ class BHOScraper():
         '''
         if self.catalogue.keys():
             catalogue_path = os.path.join('.', 'catalogue', 'catalogue.pickle')
-            if os.exists(catalogue_path):
+            if os.path.exists(catalogue_path):
                 os.remove(catalogue_path)
             self.catalogue = {}
 
@@ -106,32 +120,20 @@ class BHOScraper():
             raise ValueError('"series_query" must be a string.')
 
         # Standardize query
-        p = re.compile(r'[\W_]+')
-        series_query_std = p.sub('', series_query).lower()
 
-        catalogue_path = os.path.join(r'.',r'catalogue',r'catalogue.pickle')
-        if os.path.exists(catalogue_path):
-            with open(catalogue_path, 'rb') as f:
-                catalogue = pickle.load(f)
-                # Search the catalogue for series_query
-                try:
-                    base_url    = catalogue[series_query_std]
-                    pattern     = re.compile(r'uk/.+\?')
-                    series_name = pattern.findall(base_url)[-1][7:-1].replace('/', '-')
-                    return base_url, series_name
-                except Exception as e:
-                    print(e)
-                    return None
-        elif self.catalogue.keys():
-                # Search the catalogue for series_query
-                catalogue = self.catalogue
-                try:
-                    base_url    = catalogue[series_query_std]
-                    pattern     = re.compile(r'uk/.+\?')
-                    series_name = pattern.findall(base_url)[-1][7:-1].replace('/', '-')
-                    return base_url, series_name
-                except Exception as e:
-                    print(e)
+        series_query_std = standardize_query(series_query)
+
+        if self.catalogue:
+            # Search the catalogue for series_query
+            catalogue = self.catalogue
+            try:
+                base_url    = catalogue[series_query_std]
+                pattern     = re.compile(r'uk/.+\?')
+                series_name = pattern.findall(base_url)[-1][7:-1].replace('/', '-')
+                return base_url, series_name
+            except Exception as e:
+                print(e)
+                return None, None
         else:
             print('No catalogue exists locally. Collecting from "https://www.british-history.ac.uk/catalogue"')
             # Scrape the catalogue into a dictionary
@@ -282,3 +284,5 @@ class BHOScraper():
         return None  
 
 
+
+# %%
