@@ -186,7 +186,6 @@ class BHOScraper():
                 excerpt = row.find(publication_excerpt_tag, excerpt_attributes).text
             except:
                 excerpt = np.nan        
-            
             # Now append to dictionary values
             content['title'].append(title)
             content['publication'].append(publication)            

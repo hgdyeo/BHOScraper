@@ -2,6 +2,8 @@
 
 import pytest
 import mock
+import pandas as pd
+import numpy as np
 
 from bho_scraper import bho_scraper
 
@@ -19,44 +21,48 @@ class Store:
     mock_series_query = r'test series query'
     mock_catalogue = {r'testseriesquery' : r'http://mock_base_url.co.uk/abc/example/href?'}
     correct_search_return = (r'http://mock_base_url.co.uk/abc/example/href?', 'example-href')
+    # ======================================================================================
     # ======================== test_scrape_catalogue =======================================
-    mock_text = '''<html>
-                        <body>
-                            <table>
-                                <tbody>
-                                    <tr>
-                                        <td>
-                                            <a>First row not taken</a>    
-                                        </td>
-                                        <td>
-                                            First row not taken 
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <a href="/yes/series/test">Yes Series Test</a>    
-                                        </td>
-                                        <td>
-                                            Single volume    
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-                                            <a href="/no-series/no_series_test">No Series Test</a>    
-                                        </td>
-                                        <td>
-                                            Single volume    
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </body>
-                    </html>
+    mock_text = '''
+                    <html><body><table><tbody><tr><td><a>First row not taken</a></td><td> 
+                    First row not taken</td></tr><tr><td><a href="/yes/series/test">Yes 
+                    Series Test</a></td><td>Single volume</td></tr><tr><td>
+                    <a href="/no-series/no_series_test">No Series Test</a> </td>
+                    <td>Single volume</td></tr></tbody></table></body></html>
                 ''' 
     correct_scraped_catalogue = {
         'yesseriestest' : 'https://www.british-history.ac.uk/search/series/yes--series--test?query={}&page={}'
     }
-
+    # ======================================================================================
+    # ======================== test_scrape_results =======================================
+    mock_results_html = '''
+                            <html><body><div class="region region-content"><div class="view-content">
+                            <div>
+                            <h4 class="title"><a>Test Title 1</a></h4>
+                            <p class="publication">Test Publication 1</p>
+                            <p class="excerpt">Test Excerpt 1</p>
+                            </div>
+                            <div>
+                            <h4 class="title"><a>Test Title 2</a></h4>
+                            <p class="publication">Test Publication 2</p>
+                            </div>
+                            <div>
+                            <h4 class="title"><a>Test Title 3</a></h4>
+                            <p class="excerpt">Test Excerpt 3</p>
+                            </div>
+                            <div>
+                            <h4 class="title"></h4>
+                            <p class="publication">Test Publication 4</p>
+                            <p class="excerpt">Test Excerpt 4</p>
+                            </div>
+                            </div></div></body></html>
+                         '''
+    correct_dict = {
+        'title'       : ['Test Title 1', 'Test Title 2', 'Test Title 3', np.nan],
+        'publication' : ['Test Publication 1', 'Test Publication 2', np.nan, 'Test Publication 4'],
+        'excerpt'     : ['Test Excerpt 1', np.nan, 'Test Excerpt 3', 'Test Excerpt 4'] 
+        }
+    correct_df = pd.DataFrame(correct_dict)
 # ============================================================================================
 
 store = Store()
@@ -89,10 +95,7 @@ def test_scrape_catalogue(mock_):
     scraper.scrape_catalogue()
     actual_result   = scraper.catalogue
     expected_result = store.correct_scraped_catalogue
-    for actual_key, expected_key in zip(actual_result.keys(), expected_result.keys()):
-        assert actual_key == expected_key
-    for actual_value, expected_value in zip(actual_result.values(), expected_result.values()):
-        assert actual_value == expected_value
+    assert expected_result == actual_result
 
 
 def test_reset_catalogue():
@@ -114,6 +117,23 @@ def test_search_for_series():
     actual_result = scraper.search_for_series(store.mock_series_query)
     expected_result = store.correct_search_return
     assert expected_result == actual_result
+
+
+def mocked_request_results_get(*args, **kwargs):
+    return MockRequest(text=store.mock_results_html, status_code=200)
+
+
+@mock.patch('requests.get', side_effect=mocked_request_results_get)
+def test_scrape_results(mock_):
+    scraper = bho_scraper.BHOScraper()
+    actual_result = scraper.scrape_results('https://hello-world.com/')
+    print(actual_result)
+    expected_result = store.correct_df
+    print('=========================================')
+    print(expected_result)
+    assert expected_result.equals(actual_result)
+
+
 
 
 
