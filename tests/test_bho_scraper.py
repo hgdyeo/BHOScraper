@@ -5,6 +5,7 @@ import mock
 import pandas as pd
 import numpy as np
 import requests
+import os
 
 from bho_scraper import bho_scraper
 from flask import Flask, request
@@ -159,7 +160,6 @@ def test_scrape_results(mock_):
     assert expected_result.equals(actual_result)
 
 
-
 @pytest.fixture(scope="module")
 def scraper_server():
     app = Flask("scraper_server")
@@ -173,8 +173,6 @@ def scraper_server():
             html = store.mock_results_html1.replace('\n', '')
         elif page == '1':
             html = store.mock_results_html2.replace('\n', '')
-        else:
-            html = "<html><body><a href='/world'>world</a></body></html>"
     
         return html
 
@@ -212,6 +210,41 @@ def test_scrape_series(scraper_server):
         assert actual_df.equals(correct_df)
 
 
+def test_scrape_series_download(scraper_server):
+    
+    def mock_scraper(*args, **kwargs):
+        return MockScraper(scraper_server=scraper_server)
+
+    @mock.patch('bho_scraper.bho_scraper.BHOScraper', side_effect=mock_scraper)
+    def get_scraper(mock_):
+        scraper = bho_scraper.BHOScraper()
+        scraper.scrape_series(['test_series_name'], ['test_query'], path=os.path.join('.','temp'))
+        return scraper
+
+    scraper = get_scraper()
+    
+    try:
+        temp_path = os.path.join('.','temp')
+        assert os.path.exists(temp_path)
+        
+        downloads = os.listdir(temp_path)
+        assert len(downloads) == 1
+
+        csv_path   = os.path.join(temp_path, downloads[-1])
+        actual_df  = pd.read_csv(csv_path).fillna('NaN substitute')
+        assert len(list(scraper.scraped_series.keys())) == 1
+        
+        key = list(scraper.scraped_series.keys())[-1]
+        correct_df = store.correct_scraped_series[key].fillna('NaN substitute')
+        assert actual_df.equals(correct_df)
+        
+        os.remove(csv_path)
+        os.rmdir(temp_path)
+        
+    except:
+        os.remove(csv_path)
+        os.rmdir(temp_path)
+        raise AssertionError()
+    
 
 
-# %%
