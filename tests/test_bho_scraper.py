@@ -4,6 +4,7 @@ import pytest
 import mock
 import pandas as pd
 import numpy as np
+import requests
 
 from bho_scraper import bho_scraper
 from flask import Flask, request
@@ -26,8 +27,8 @@ class Store:
     # ======================================================================================
     # ======================== test_scrape_catalogue =======================================
     mock_text = '''
-                    <html><body><table><tbody><tr><td><a>First row not taken</a></td><td> 
-                    First row not taken</td></tr><tr><td><a href="/yes/series/test">Yes 
+                    <html><body><table><tbody><tr><td><a>First row not taken</a></td><td>
+                    First row not taken</td></tr><tr><td><a href="/yes/series/test">Yes
                     Series Test</a></td><td>Single volume</td></tr><tr><td>
                     <a href="/no-series/no_series_test">No Series Test</a> </td>
                     <td>Single volume</td></tr></tbody></table></body></html>
@@ -71,9 +72,9 @@ class Store:
     mock_results_html2 = '''
                             <html><body><div class="region region-content"><div class="view-content">
                             <div>
-                            <h4 class="title"><a>Hello World A</a></h4>
-                            <p class="publication">abc 123 A</p>
-                            <p class="excerpt"> e = mc ** 2</p>
+                            <h4 class="title"><a>Hello World</a></h4>
+                            <p class="publication">abc 123</p>
+                            <p class="excerpt">e = mc ** 2</p>
                             </div></div></body></html>
                          '''
 
@@ -86,7 +87,7 @@ class Store:
         'excerpt'     : ['Test Excerpt 1', np.nan, 'Test Excerpt 3', 'Test Excerpt 4', 'e = mc ** 2'] 
         }
         )
-    correct_scraped_series = {'test_series' : correct_scraped_df}
+    correct_scraped_series = {'test_series_name' : correct_scraped_df}
 # ============================================================================================
 
 store = Store()
@@ -169,9 +170,12 @@ def scraper_server():
         page = request.args.get('page')
         query = request.args.get('query')
         if page == '0':
-            html = store.mock_results_html1
+            html = store.mock_results_html1.replace('\n', '')
         elif page == '1':
-            html = store.mock_results_html2
+            html = store.mock_results_html2.replace('\n', '')
+        else:
+            html = "<html><body><a href='/world'>world</a></body></html>"
+    
         return html
 
     with server.run():
@@ -196,14 +200,16 @@ def test_scrape_series(scraper_server):
     @mock.patch('bho_scraper.bho_scraper.BHOScraper', side_effect=mock_scraper)
     def get_scraper(mock_):
         scraper = bho_scraper.BHOScraper()
-        print('url found: ', scraper.url)
         scraper.scrape_series(['test_series_name'], ['test_query'])
-    
+        return scraper
+
     scraper = get_scraper()
-    
-    assert scraper.scraped_series == store.correct_scraped_series
+    for key, correct_key in zip(scraper.scraped_series.keys(), store.correct_scraped_series.keys()):
+        assert key == correct_key
+        actual_df  = scraper.scraped_series[key].fillna('NaN substitute')
+        correct_df =  store.correct_scraped_series[key].fillna('NaN substitute')
 
-
+        assert actual_df.equals(correct_df)
 
 
 
