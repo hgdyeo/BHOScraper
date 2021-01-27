@@ -3,17 +3,24 @@ bho_scraper
 ===========
 
 
-Add a short description here!
-
+A simple web scraper designed to collect references to words or phrases in documents contained in the British History Online catalogue.
 
 Description
 ===========
 
-A longer description of your project goes here...
+Usage
+=====
+- Command Line:
+`scrape "[<series_a>, <series_b>,...]" "[<query_a>, <query_b>,...]" <path_to_save_destination>`
 
+- Code:
+`from bho_scraper import BHOScraper
+scraper = BHOScraper()
+scraper.scrape([<series_a>, <series_b>,...], [<query_a>, <query_b>,...], <path_to_save_destination> (OPTIONAL)])
 
-Note
-====
-
-This project has been set up using PyScaffold 3.2.3. For details and usage
-information on PyScaffold see https://pyscaffold.org/.
+To-do
+=====
+- Search for best match to series and add "did you mean ...?"
+- Improve CLI argument input
+- Unit test for cli
+- Unit test for various exceptions.
