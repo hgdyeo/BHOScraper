@@ -218,7 +218,7 @@ class BHOScraper():
             except:
                 raise ValueError('Invalid "queries" entered.')
         if type(series_queries) == str:
-            series_query = [series_queries]
+            series_queries = [series_queries]
         elif type(series_queries) != list:
             try:
                 series_queries = list(series_queries)
@@ -232,36 +232,40 @@ class BHOScraper():
                 base_url, series_name = self.search_for_series(series_query)
                 
 
-                first_page_url = base_url.format(quote_plus(query), 0)
-
-                r = requests.get(first_page_url)
-
-                first_page = r.text
-                first_page_soup = BeautifulSoup(first_page, 'html.parser')
-                last_page_tag = 'a'
-                last_page_attributes = {'title' : 'Go to last page'}
-
                 try:
-                    last_page     = first_page_soup.find(last_page_tag, last_page_attributes)
-                    last_page_url = last_page['href']
-                    pattern       = re.compile(r'&page=[0-9]+')
-                    num_pages     = int(pattern.findall(last_page_url)[0][6:])
-                    dfs           = [self.scrape_results(first_page_url)]
+                    first_page_url = base_url.format(quote_plus(query), 0)
+
+                        
+
+                    r = requests.get(first_page_url)
+
+                    first_page = r.text
+                    first_page_soup = BeautifulSoup(first_page, 'html.parser')
+                    last_page_tag = 'a'
+                    last_page_attributes = {'title' : 'Go to last page'}
+
+                    try:
+                        last_page     = first_page_soup.find(last_page_tag, last_page_attributes)
+                        last_page_url = last_page['href']
+                        pattern       = re.compile(r'&page=[0-9]+')
+                        num_pages     = int(pattern.findall(last_page_url)[0][6:])
+                        dfs           = [self.scrape_results(first_page_url)]
+                    except:
+                        print('No results for "{}" in "{}"'.format(query, series_query))
+                        num_pages = 0
+                        dfs       = []
+
+                    for i in tqdm(range(1, num_pages + 1)):
+                        df = self.scrape_results(base_url.format(quote_plus(query), i))
+                        dfs.append(df)
+
+                    if dfs:
+                        query_df = pd.concat(dfs, axis=0)
+                        query_df['query'] = query
+                        query_df = pd.concat([query_df.iloc[:,-1], query_df.iloc[:,:-1]], axis=1)
+                        query_dfs.append(query_df)
                 except:
-                    print('No results for "{}" in "{}"'.format(query, series_query))
-                    num_pages = 0
-                    dfs       = []
-
-                for i in tqdm(range(1, num_pages + 1)):
-                    df = self.scrape_results(base_url.format(quote_plus(query), i))
-                    dfs.append(df)
-
-                if dfs:
-                    query_df = pd.concat(dfs, axis=0)
-                    query_df['query'] = query
-                    query_df = pd.concat([query_df.iloc[:,-1], query_df.iloc[:,:-1]], axis=1)
-                    query_dfs.append(query_df)
-            
+                    pass
             if query_dfs:
                 series_df = pd.concat(query_dfs, axis=0)
                 if series_query in self.scraped_series.keys():
