@@ -11,12 +11,15 @@ Description
 Usage
 =====
 - Command Line:
-`scrape "[<series_a>, <series_b>,...]" "[<query_a>, <query_b>,...]" <path_to_save_destination>`
+``scrape "[<series_a>, <series_b>,...]" "[<query_a>, <query_b>,...]" <path_to_save_destination>``
 
 - Code:
-`from bho_scraper import BHOScraper
-scraper = BHOScraper()
-scraper.scrape([<series_a>, <series_b>,...], [<query_a>, <query_b>,...], <path_to_save_destination> (OPTIONAL)])
+``from bho_scraper import BHOScraper``
+
+``scraper = BHOScraper()``
+
+``scraper.scrape([<series_a>, <series_b>,...], [<query_a>, <query_b>,...], <path_to_save_destination> (OPTIONAL)])``
+
 
 To-do
 =====
